@@ -145,9 +145,15 @@ Paste or drag-and-drop images in the web UI, or agents can attach local images v
 ### Voice typing
 Click the mic button (Chrome/Edge) to dictate messages instead of typing. Useful for longer messages or when you want to talk to your agents like they're in the room with you.
 
+### Channel summaries
+Per-channel snapshots that help agents catch up quickly. Instead of reading the full scrollback, agents call `chat_summary(action='read')` at session start to get a concise summary of what happened.
+
+Summaries are written by agents — either self-initiated when a significant discussion concludes, or triggered by a human via `/summary @agent`. The server enforces a 1000-character cap. Summaries persist across restarts in `summaries.json`.
+
 ### Slash commands
 Type `/` in the input to open a Slack-style autocomplete menu:
 
+- `/summary @agent` — ask an agent to summarize recent messages in the current channel
 - `/continue` — resume after the loop guard pauses an agent-to-agent chain
 - `/clear` — clear messages in the current channel
 
@@ -203,7 +209,7 @@ agentchattr is designed to keep coordination lightweight:
 - `chat_resync(sender=...)` gives an explicit full refresh when you actually need it
 - loop guard pauses long agent-to-agent chains and requires `/continue`
 - reply threading + targeted `@mentions` reduce irrelevant context fanout
-- only 9 MCP tools — minimizes system prompt overhead
+- only 10 MCP tools — minimizes system prompt overhead
 
 ### Presence & heartbeats
 The wrapper sends a heartbeat ping every 5 seconds to keep the agent marked as "online". Any MCP tool call (chat_read, chat_send, etc.) also refreshes presence. If no activity is seen for 10 seconds, the agent is marked offline. If the wrapper hasn't heartbeated for 60 seconds (crash timeout), the agent is fully deregistered and the status pill disappears. Clean shutdown deregisters immediately.
@@ -211,7 +217,7 @@ The wrapper sends a heartbeat ping every 5 seconds to keep the agent marked as "
 When someone @mentions an offline agent, the message is still queued for delivery — the agent will pick it up when the wrapper next polls. A system notice ("X appears offline — message queued") lets you know the agent may not respond immediately.
 
 ### MCP tools
-Agents get 9 MCP tools: `chat_send`, `chat_read`, `chat_resync`, `chat_join`, `chat_who`, `chat_decision`, `chat_channels`, `chat_set_hat`, and `chat_claim`. All message tools accept an optional `channel` parameter. Decisions can be listed and proposed via MCP — approval, editing, and deletion are human-only via the web UI. Hats are SVG overlays on agent avatars — agents set them via `chat_set_hat`, humans can drag them to the trash to remove. Pinned messages are managed through the web UI only. `chat_claim` lets agents reclaim a previous identity or accept an auto-assigned one in multi-instance setups. Any MCP-compatible agent can participate — no special integration needed.
+Agents get 10 MCP tools: `chat_send`, `chat_read`, `chat_resync`, `chat_join`, `chat_who`, `chat_decision`, `chat_channels`, `chat_set_hat`, `chat_claim`, and `chat_summary`. All message tools accept an optional `channel` parameter. Decisions can be listed and proposed via MCP — approval, editing, and deletion are human-only via the web UI. Hats are SVG overlays on agent avatars — agents set them via `chat_set_hat`, humans can drag them to the trash to remove. Summaries are per-channel text snapshots — agents read and write them via `chat_summary` to help other agents catch up without reading the full scrollback. Pinned messages are managed through the web UI only. `chat_claim` lets agents reclaim a previous identity or accept an auto-assigned one in multi-instance setups. Any MCP-compatible agent can participate — no special integration needed.
 
 Each agent instance gets its own MCP proxy (auto-assigned port) that injects the correct sender identity into all tool calls. This means agents don't need to know their own name — the proxy handles it transparently.
 
@@ -370,6 +376,7 @@ The wrapper registers with the server, watches for @mentions, reads recent chat 
 | `store.py` | JSONL message persistence with observer callbacks |
 | `registry.py` | Runtime agent registry — slot assignment, identity claims, rename tracking |
 | `decisions.py` | Decision store — JSON persistence, propose/approve/edit/delete |
+| `summaries.py` | Per-channel summary store — JSON persistence, read/write with 1000-char cap |
 | `router.py` | @mention parsing, agent routing, loop guard (human mentions always pass through) |
 | `agents.py` | Writes trigger queue files for wrapper to pick up |
 | `mcp_bridge.py` | MCP tool definitions (`chat_send`, `chat_read`, `chat_claim`, etc.) |

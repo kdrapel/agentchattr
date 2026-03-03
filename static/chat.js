@@ -1304,6 +1304,18 @@ function setupKeyboardShortcuts() {
 
 // --- Slash command menu ---
 
+function showSlashHint(text) {
+    const input = document.getElementById('input');
+    if (!input) return;
+    const original = input.placeholder;
+    input.placeholder = text;
+    input.classList.add('slash-hint-active');
+    setTimeout(() => {
+        input.placeholder = original;
+        input.classList.remove('slash-hint-active');
+    }, 3000);
+}
+
 const SLASH_COMMANDS = [
     { cmd: '/artchallenge', desc: 'SVG art challenge — all agents create artwork (optional theme)', broadcast: true },
     { cmd: '/hatmaking', desc: 'All agents design a hat to wear on their avatar', broadcast: true },
@@ -1311,6 +1323,8 @@ const SLASH_COMMANDS = [
     { cmd: '/poetry haiku', desc: 'Agents write a haiku about the codebase', broadcast: true },
     { cmd: '/poetry limerick', desc: 'Agents write a limerick about the codebase', broadcast: true },
     { cmd: '/poetry sonnet', desc: 'Agents write a sonnet about the codebase', broadcast: true },
+    { cmd: '/summary', desc: 'Summarize recent messages — tag an agent (e.g. /summary @claude)', broadcast: false, needsMention: true },
+    { cmd: '/summarise', desc: 'Summarize recent messages — tag an agent (e.g. /summarise @claude)', broadcast: false, needsMention: true, hidden: true },
     { cmd: '/continue', desc: 'Resume after loop guard pauses', broadcast: false },
     { cmd: '/clear', desc: 'Clear messages in current channel', broadcast: false },
 ];
@@ -1330,7 +1344,7 @@ function updateSlashMenu(text) {
     }
 
     const query = text.toLowerCase();
-    const matches = SLASH_COMMANDS.filter(c => c.cmd.startsWith(query));
+    const matches = SLASH_COMMANDS.filter(c => !c.hidden && c.cmd.startsWith(query));
 
     if (matches.length === 0 || (matches.length === 1 && matches[0].cmd === query)) {
         menu.classList.add('hidden');
@@ -1556,6 +1570,17 @@ function sendMessage() {
         const matchedCmd = SLASH_COMMANDS.find(c => c.cmd.startsWith(cmdWord) || cmdWord.startsWith(c.cmd.split(/\s/)[0]));
         if (matchedCmd && !matchedCmd.broadcast) {
             skipMentions = true;
+        }
+        // Commands that need an @mention — show hint and keep command in input
+        if (matchedCmd && matchedCmd.needsMention && !/@\w/.test(text)) {
+            const canonical = matchedCmd.cmd.split(/\s/)[0];  // e.g. '/summary'
+            input.value = canonical + ' @';
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+            showSlashHint(`Tag an agent: ${canonical} @claude`);
+            // Trigger mention autocomplete for the '@'
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            return;
         }
     }
     if (activeMentions.size > 0 && text && !skipMentions) {

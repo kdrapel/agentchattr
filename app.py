@@ -16,6 +16,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from store import MessageStore
 from decisions import DecisionStore
+from summaries import SummaryStore
 from router import Router
 from agents import AgentTrigger
 from registry import RuntimeRegistry
@@ -27,6 +28,7 @@ app = FastAPI(title="agentchattr")
 # --- globals (set by configure()) ---
 store: MessageStore | None = None
 decisions: DecisionStore | None = None
+summaries: SummaryStore | None = None
 router: Router | None = None
 agents: AgentTrigger | None = None
 registry: RuntimeRegistry | None = None
@@ -210,7 +212,7 @@ def _install_security_middleware(token: str, cfg: dict):
 
 
 def configure(cfg: dict, session_token: str = ""):
-    global store, decisions, router, agents, registry, config
+    global store, decisions, summaries, router, agents, registry, config
     config = cfg
 
     # --- Security: store the session token and install middleware ---
@@ -232,6 +234,8 @@ def configure(cfg: dict, session_token: str = ""):
     
     decisions = DecisionStore(str(Path(data_dir) / "decisions.json"))
     decisions.on_change(_on_decision_change)
+
+    summaries = SummaryStore(str(Path(data_dir) / "summaries.json"))
 
     max_hops = cfg.get("routing", {}).get("max_agent_hops", 4)
 

@@ -36,10 +36,11 @@ def main():
     configure(config, session_token=session_token)
 
     # Share stores with the MCP bridge
-    from app import store, decisions, room_settings, registry
+    from app import store, decisions, summaries, room_settings, registry
     import mcp_bridge
     mcp_bridge.store = store
     mcp_bridge.decisions = decisions
+    mcp_bridge.summaries = summaries
     mcp_bridge.room_settings = room_settings
     mcp_bridge.registry = registry
     mcp_bridge.config = config

@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 # Shared state — set by run.py before starting
 store = None
 decisions = None
+summaries = None
 room_settings = None  # set by run.py — dict with "channels" list etc.
 registry = None       # set by run.py — RuntimeRegistry instance
 config = None         # set by run.py — full config.toml dict
@@ -81,7 +82,15 @@ _MCP_INSTRUCTIONS = (
     "The server assigns names like claude-1, claude-2 automatically.\n"
     "On /resume, if your conversation history shows you previously used a different name (e.g. 'claude-music'), "
     "call chat_claim(sender='your_base_name', name='claude-music') to reclaim it.\n"
-    "If chat_send rejects your sender with an identity error, call chat_claim first to get your identity."
+    "If chat_send rejects your sender with an identity error, call chat_claim first to get your identity.\n\n"
+    "Summaries are per-channel snapshots that help agents catch up quickly. "
+    "Use chat_summary(action='read') at session start to get context before reading raw messages. "
+    "Use chat_summary(action='write', text='...') to update the summary ONLY when:\n"
+    "- A significant task or discussion has concluded\n"
+    "- You are explicitly asked via /summary\n"
+    "- The channel has had 20+ messages since the last summary\n"
+    "Do NOT update the summary mid-conversation, after trivial exchanges, or when another agent just updated it. "
+    "Keep summaries factual and concise (under 150 words) — focus on decisions made, tasks completed, and open questions."
 )
 
 # --- Tool implementations (shared between both servers) ---
@@ -592,9 +601,55 @@ def chat_channels() -> str:
     return json.dumps(channels)
 
 
+def chat_summary(
+    action: str,
+    sender: str,
+    text: str = "",
+    channel: str = "",
+    ctx: Context | None = None,
+) -> str:
+    """Read or write per-channel summaries. Summaries help agents catch up quickly.
+
+    Actions:
+      - read: Get the current summary for a channel (default: sender's last active channel).
+      - write: Update the channel summary. Requires text (max 1000 chars).
+
+    Keep summaries factual and concise (under 150 words). Focus on decisions made,
+    tasks completed, and open questions."""
+    sender, err = _resolve_tool_identity(sender, ctx, field_name="sender", required=False)
+    if err:
+        return err
+    action = action.strip().lower()
+    channel = (channel or "general").strip()
+
+    if action == "read":
+        entry = summaries.get(channel)
+        if not entry:
+            return json.dumps({"channel": channel, "text": None, "message": f"No summary for #{channel} yet — one hasn't been written."})
+        return json.dumps(entry, ensure_ascii=False)
+
+    if action == "write":
+        if not text.strip():
+            return "Error: text is required."
+        if len(text.strip()) > 1000:
+            return "Error: summary too long (max 1000 characters)."
+        # Get the latest message ID for staleness tracking
+        latest_id = 0
+        if store:
+            recent = store.get_recent(1, channel=channel)
+            if recent:
+                latest_id = recent[-1]["id"]
+        result = summaries.write(channel, text, sender, message_id=latest_id)
+        if result is None:
+            return "Error: failed to write summary."
+        return f"Summary for #{channel} updated ({len(text.strip())} chars)."
+
+    return f"Unknown action: {action}. Valid actions: read, write."
+
+
 _ALL_TOOLS = [
     chat_send, chat_read, chat_resync, chat_join, chat_who, chat_decision,
-    chat_channels, chat_set_hat, chat_claim,
+    chat_channels, chat_set_hat, chat_claim, chat_summary,
 ]
 
 
