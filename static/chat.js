@@ -1717,6 +1717,10 @@ function enterDeleteMode(initialId) {
     deleteSelected.clear();
     if (initialId != null) deleteSelected.add(initialId);
 
+    // Freeze scroll position — DOM changes below shift layout
+    const timeline = document.getElementById('timeline');
+    const scrollBefore = timeline.scrollTop;
+
     // Add delete-mode class to timeline for CSS shift
     document.getElementById('messages').classList.add('delete-mode');
 
@@ -1741,6 +1745,9 @@ function enterDeleteMode(initialId) {
     showDeleteBar();
     updateDeleteBar();
     document.getElementById('scroll-anchor').style.bottom = '180px';
+
+    // Restore scroll position after layout shift
+    timeline.scrollTop = scrollBefore;
 }
 
 function toggleDeleteSelect(id, dragForceSelect) {
@@ -1797,6 +1804,10 @@ function exitDeleteMode() {
     deleteSelected.clear();
     deleteDragging = false;
 
+    // Freeze scroll position — layout changes below shift content
+    const timeline = document.getElementById('timeline');
+    const scrollBefore = timeline.scrollTop;
+
     // Animate messages back
     document.getElementById('messages').classList.remove('delete-mode');
 
@@ -1814,6 +1825,9 @@ function exitDeleteMode() {
     });
 
     document.getElementById('scroll-anchor').style.bottom = '';
+
+    // Restore scroll position after layout shift
+    timeline.scrollTop = scrollBefore;
 }
 
 // Auto-scroll while dragging near edges
