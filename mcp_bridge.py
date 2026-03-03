@@ -642,6 +642,9 @@ def chat_summary(
         result = summaries.write(channel, text, sender, message_id=latest_id)
         if result is None:
             return "Error: failed to write summary."
+        # Post a visual summary message to the timeline
+        if store:
+            store.add(sender, text.strip(), msg_type="summary", channel=channel)
         return f"Summary for #{channel} updated ({len(text.strip())} chars)."
 
     return f"Unknown action: {action}. Valid actions: read, write."

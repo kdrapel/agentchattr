@@ -289,7 +289,7 @@ function connectWebSocket() {
         const event = JSON.parse(e.data);
         if (event.type === 'message') {
             // Play notification sound for new messages from others (not joins, not when focused)
-            if (soundEnabled && !document.hasFocus() && event.data.type !== 'join' && event.data.type !== 'leave' && event.data.sender && event.data.sender.toLowerCase() !== username.toLowerCase()) {
+            if (soundEnabled && !document.hasFocus() && event.data.type !== 'join' && event.data.type !== 'leave' && event.data.type !== 'summary' && event.data.sender && event.data.sender.toLowerCase() !== username.toLowerCase()) {
                 playNotificationSound(event.data.sender);
             }
             appendMessage(event.data);
@@ -520,6 +520,10 @@ function appendMessage(msg) {
         el.classList.add('join-msg');
         const color = getColor(msg.sender);
         el.innerHTML = `<span class="join-dot" style="background: ${color}"></span><span class="join-text"><strong style="color: ${color}">${escapeHtml(msg.sender)}</strong> ${msg.type === 'join' ? 'joined' : 'left'}</span>`;
+    } else if (msg.type === 'summary') {
+        el.classList.add('summary-msg');
+        const color = getColor(msg.sender);
+        el.innerHTML = `<div class="summary-card"><span class="summary-pill">Summary</span><span class="summary-author" style="color: ${color}">${escapeHtml(msg.sender)}</span><div class="summary-text">${escapeHtml(msg.text)}</div></div>`;
     } else if (msg.type === 'system' || msg.sender === 'system') {
         el.classList.add('system-msg');
         el.innerHTML = `<span class="msg-text">${escapeHtml(msg.text)}</span>`;
@@ -1901,7 +1905,7 @@ function enterDeleteMode(initialId) {
 
     // Add radio circles to all messages (not joins)
     document.querySelectorAll('.message[data-id]').forEach(el => {
-        if (el.classList.contains('join-msg') || el.classList.contains('system-msg')) return;
+        if (el.classList.contains('join-msg') || el.classList.contains('system-msg') || el.classList.contains('summary-msg')) return;
         const id = parseInt(el.dataset.id);
         const circle = document.createElement('div');
         circle.className = 'delete-radio' + (deleteSelected.has(id) ? ' selected' : '');
