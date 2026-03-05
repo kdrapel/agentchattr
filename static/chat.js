@@ -2860,11 +2860,11 @@ async function _preserveScroll(fn) {
     const topId = _getTopVisibleMsgId();
 
     // Save the exact pixel offset of the top visible message
-    let offset = 0;
+    let savedOffset = 0;
     if (topId) {
         const el = document.querySelector(`.message[data-id="${topId}"]`);
         if (el) {
-            offset = el.getBoundingClientRect().top - timeline.getBoundingClientRect().top;
+            savedOffset = el.getBoundingClientRect().top - timeline.getBoundingClientRect().top;
         }
     }
 
@@ -2874,20 +2874,32 @@ async function _preserveScroll(fn) {
 
     await fn();
 
-    // Force synchronous reflow by reading layout, then correct scroll instantly
-    void timeline.scrollHeight;
-    if (wasAtBottom) {
-        timeline.scrollTop = timeline.scrollHeight;
-    } else if (topId) {
-        const el = document.querySelector(`.message[data-id="${topId}"]`);
-        if (el) {
-            const newRect = el.getBoundingClientRect();
-            const timelineRect = timeline.getBoundingClientRect();
-            timeline.scrollTop += (newRect.top - timelineRect.top) - offset;
+    // Continuously correct scroll during sidebar CSS transition
+    function correctScroll() {
+        if (wasAtBottom) {
+            timeline.scrollTop = timeline.scrollHeight;
+        } else if (topId) {
+            const el = document.querySelector(`.message[data-id="${topId}"]`);
+            if (el) {
+                const newRect = el.getBoundingClientRect();
+                const timelineRect = timeline.getBoundingClientRect();
+                timeline.scrollTop += (newRect.top - timelineRect.top) - savedOffset;
+            }
         }
     }
 
-    timeline.style.scrollBehavior = oldSmooth;
+    // Correct immediately
+    void timeline.scrollHeight;
+    correctScroll();
+
+    // Keep correcting each frame during the transition (~300ms)
+    let frames = 0;
+    function tick() {
+        correctScroll();
+        if (++frames < 20) requestAnimationFrame(tick); // ~333ms at 60fps
+        else timeline.style.scrollBehavior = oldSmooth;
+    }
+    requestAnimationFrame(tick);
 }
 
 function toggleDecisionsPanel() {
