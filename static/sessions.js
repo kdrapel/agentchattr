@@ -856,6 +856,14 @@ Hub.on('session', function (event) {
     handleSessionEvent(event.action, event.data);
 });
 
+Hub.on('channel_renamed', function (event) {
+    // Migrate session cache key so Store watcher resolves the correct session
+    if (activeSessionsByChannel[event.old_name]) {
+        activeSessionsByChannel[event.new_name] = activeSessionsByChannel[event.old_name];
+        delete activeSessionsByChannel[event.old_name];
+    }
+});
+
 // ---------------------------------------------------------------------------
 // Store integration -- react to channel changes
 // ---------------------------------------------------------------------------
