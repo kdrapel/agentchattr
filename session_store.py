@@ -116,10 +116,9 @@ class SessionStore:
                 custom = []
 
         new_custom = [t for t in custom if t.get("id") != template_id]
-        if len(new_custom) == len(custom):
-            return False
+        if len(new_custom) != len(custom):
+            custom_path.write_text(json.dumps(new_custom, indent=2, ensure_ascii=False) + "\n", "utf-8")
 
-        custom_path.write_text(json.dumps(new_custom, indent=2, ensure_ascii=False) + "\n", "utf-8")
         self._templates.pop(template_id, None)
         return True
 
